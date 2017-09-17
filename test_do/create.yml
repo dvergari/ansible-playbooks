@@ -1,0 +1,56 @@
+- hosts: localhost
+  connection: local
+  vars_files:
+    - vars.yml
+  vars_prompt:
+    - name: do_name
+      prompt: "Server name"
+      private: no
+  tasks:
+    - name: Register SSH key
+      digital_ocean: >
+        state=present
+        command=ssh
+        name={{ do_ssh_name }}
+        ssh_pub_key={{ do_ssh_pub_key }}
+        api_token={{ do_api_token }}
+      register: do_droplet
+
+    - name: Register droplet
+      digital_ocean: >
+        state=active
+        unique_name=yes
+        command=droplet
+        api_token={{ do_api_token }}
+        name={{ do_name }}
+        private_networking=no
+        region_id={{ do_region }}
+        size_id={{ do_size }}
+        image_id={{ do_image }}
+        ssh_key_ids={{ do_droplet.ssh_key.id }}
+        virtio=yes
+        wait=yes
+      register: do_droplet
+
+    - debug: msg="droplet is {{ do_droplet }} "
+    - debug: msg="IP is {{ do_droplet.droplet.ip_address }} "
+
+    - name: Create volume
+      digital_ocean_block_storage: >
+        state=present
+        command=create
+        api_token={{ do_api_token }}
+        block_size=256
+        region={{ do_region }}
+        volume_name=data01
+
+    - name: Attach volume
+      digital_ocean_block_storage: >
+        state=present
+        command=attach
+        api_token={{ do_api_token }}
+        droplet_id={{ do_droplet.droplet.id }}
+        volume_name=data01
+        region={{ do_region }}
+      register: my_volume
+
